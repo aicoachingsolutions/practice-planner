@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import {
+  getAiPracticeGenerationRunsForPractice,
   getCoachDrills,
   getCurrentTeamForUser,
   getPracticeForTeam,
@@ -31,6 +32,60 @@ const emphasisLabels: Record<string, string> = {
   custom: "Custom",
 };
 
+type AiStatsSummary = {
+  raw?: string;
+  signals?: string[];
+  stat_report_id?: string | null;
+};
+
+function formatSignalLabel(signal: string) {
+  return signal.replaceAll("_", " ");
+}
+
+function parseStatsSummary(value: unknown): AiStatsSummary | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const summary = value as AiStatsSummary;
+  return {
+    raw: typeof summary.raw === "string" ? summary.raw : undefined,
+    signals: Array.isArray(summary.signals)
+      ? summary.signals.filter((signal): signal is string => typeof signal === "string")
+      : [],
+    stat_report_id: typeof summary.stat_report_id === "string" ? summary.stat_report_id : null,
+  };
+}
+
+function buildGameAssessmentParagraph(sportKey: string, summary: AiStatsSummary | null) {
+  const signals = summary?.signals ?? [];
+  const readableSignals = signals.map(formatSignalLabel);
+
+  if (signals.length === 0) {
+    return "AI used the practice template, available drills, and coaching context to build this plan. No clear stat weakness was detected from the uploaded game data.";
+  }
+
+  const signalText =
+    readableSignals.length === 1
+      ? readableSignals[0]
+      : `${readableSignals.slice(0, -1).join(", ")} and ${readableSignals[readableSignals.length - 1]}`;
+
+  const sportContext: Record<string, string> = {
+    basketball:
+      "The game profile points to possessions being lost or extended in ways that can swing momentum, so this practice should tighten decision-making, pressure handling, finishing possessions, and late-rep execution.",
+    soccer:
+      "The game profile points to breakdowns in territory, pressure, or set-piece moments, so this practice should improve organization, transition reactions, and composure in repeatable game situations.",
+    volleyball:
+      "The game profile points to first-contact and transition stress, so this practice should stabilize serve receive, improve out-of-system choices, and create cleaner side-out opportunities.",
+    baseball:
+      "The game profile points to preventable execution mistakes, so this practice should sharpen defensive communication, throwing accuracy, situational awareness, and pressure reps.",
+    softball:
+      "The game profile points to preventable execution mistakes, so this practice should sharpen defensive communication, throwing accuracy, situational awareness, and pressure reps.",
+  };
+
+  return `AI read the uploaded game stats as a practice problem around ${signalText}. ${sportContext[sportKey] ?? "The plan should turn those stat weaknesses into focused, repeatable practice blocks."} The drills were chosen to convert those weaknesses into teachable reps instead of simply filling time.`;
+}
+
 export default async function PracticeDetailPage({ params, searchParams }: Props) {
   const user = await requireUser();
   const team = await getCurrentTeamForUser(user.id);
@@ -45,10 +100,20 @@ export default async function PracticeDetailPage({ params, searchParams }: Props
     notFound();
   }
 
-  const [availableDrills, templateOptions] = await Promise.all([
+  const [availableDrills, templateOptions, aiRuns] = await Promise.all([
     getCoachDrills(user.id, true, team.sport_key),
     getPracticeTemplatesForSport(team.sport_key),
+    getAiPracticeGenerationRunsForPractice(practice.id, team.id),
   ]);
+  const latestAiRun = aiRuns[0] ?? null;
+  const latestStatsSummary = parseStatsSummary(latestAiRun?.stats_summary);
+  const hasAiPlan = Boolean(
+    latestAiRun ||
+      practice.practice_blocks.some((block) =>
+        block.practice_block_drills.some((segment) => segment.ai_generated_run_id || segment.ai_selection_reason),
+      ),
+  );
+  const gameAssessment = buildGameAssessmentParagraph(team.sport_key, latestStatsSummary);
 
   const plannedMinutes = practice.practice_blocks.reduce(
     (sum, block) => sum + (block.planned_duration_minutes ?? 0),
@@ -125,6 +190,25 @@ export default async function PracticeDetailPage({ params, searchParams }: Props
         <p>{practice.custom_focus ? `Focus: ${practice.custom_focus}` : "No focus notes."}</p>
         <p>{practice.notes ?? "No additional notes."}</p>
       </section>
+
+      {hasAiPlan ? (
+        <section className="card ai-rationale-card">
+          <div className="stack">
+            <p className="eyebrow">AI summary</p>
+            <h2>Game assessment</h2>
+            <p className="ai-assessment">{gameAssessment}</p>
+            {latestStatsSummary?.signals?.length ? (
+              <div className="inline-meta" aria-label="Detected stat weaknesses">
+                {latestStatsSummary.signals.map((signal) => (
+                  <span className="chip accent" key={signal}>
+                    {formatSignalLabel(signal)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <PracticeEditor
         practiceId={practice.id}

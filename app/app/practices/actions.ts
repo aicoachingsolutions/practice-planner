@@ -588,6 +588,14 @@ async function readUploadedStatsText(formData: FormData) {
   return file.text();
 }
 
+function statsDrivenPrompt(statsSummary: StatsSummary | null) {
+  if (!statsSummary || statsSummary.signals.length === 0) {
+    return "";
+  }
+
+  return `Build this practice from the uploaded game stats. Identify the biggest weaknesses from these stat signals and prioritize drills that address them: ${statsSummary.signals.join(", ")}.`;
+}
+
 async function saveCentralTeamStatsForAi(
   supabase: Awaited<ReturnType<typeof createClient>>,
   context: PracticeContext,
@@ -1296,12 +1304,17 @@ export async function generatePracticeWithAi(formData: FormData) {
   const includeIds = new Set(formData.getAll("ai_include_drill_ids").map((value) => String(value)).filter(Boolean));
   const templateKey = String(formData.get("practice_template_key") ?? "").trim() || null;
 
-  if (!prompt) {
-    redirect(`/app/practices?error=${encodeURIComponent("Add what you want to work on today.")}`);
-  }
-
   const result = await createPracticeBase(supabase, context, input, input.blocks);
   const { statReportId, statsSummary } = await saveCentralTeamStatsForAi(supabase, context, formData);
+  const effectivePrompt = prompt || statsDrivenPrompt(statsSummary);
+
+  if (!effectivePrompt) {
+    redirect(
+      `/app/practices?error=${encodeURIComponent(
+        "Add a focus, paste game stats, or upload a stats CSV so AI has practice context.",
+      )}`,
+    );
+  }
 
   let runId: string | null = null;
   let aiGenerated = false;
@@ -1318,7 +1331,7 @@ export async function generatePracticeWithAi(formData: FormData) {
       candidates.map((candidate) => candidate.id),
     );
     const candidateSnapshot = buildAiCandidateSnapshot(candidates, {
-      prompt,
+      prompt: effectivePrompt,
       statsSummary,
       explicitIncludeIds: includeIds,
       usageCounts,
@@ -1329,7 +1342,7 @@ export async function generatePracticeWithAi(formData: FormData) {
       context,
       input,
       result.practiceId,
-      prompt,
+      effectivePrompt,
       templateKey,
       statsSummary,
       statReportId,
@@ -1359,7 +1372,7 @@ export async function generatePracticeWithAi(formData: FormData) {
 
     const messages = buildAiPracticePrompt({
       sportKey: context.team.sport_key,
-      prompt,
+      prompt: effectivePrompt,
       targetDurationMinutes: input.targetDuration,
       templateKey,
       practiceType: input.practiceType,
@@ -1375,7 +1388,7 @@ export async function generatePracticeWithAi(formData: FormData) {
       targetDurationMinutes: input.targetDuration,
       blocks: blocksForAi,
       candidates,
-      allowDuplicateDrills: /repeat|same drill|repetition/i.test(prompt),
+      allowDuplicateDrills: /repeat|same drill|repetition/i.test(effectivePrompt),
     });
 
     await persistAiPracticeSegments(

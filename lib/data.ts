@@ -85,6 +85,11 @@ export const getCoachDrills = cache(async (userId: string, isActive: boolean, sp
         priority,
         frequency,
         notes,
+        player_count,
+        equipment,
+        setup_instructions,
+        how_to_run,
+        coaching_points,
         is_active,
         updated_at,
         drill_tag_map (
@@ -242,6 +247,10 @@ export const getPracticeForTeam = cache(async (practiceId: string, teamId: strin
             segment_name,
             duration_minutes,
             notes,
+            ai_generated_run_id,
+            ai_selection_reason,
+            ai_situation_tag_slug,
+            ai_source_type,
             drills (
               id,
               name,
@@ -267,6 +276,35 @@ export const getPracticeForTeam = cache(async (practiceId: string, teamId: strin
   }
 
   return data;
+});
+
+export const getAiPracticeGenerationRunsForPractice = cache(async (practiceId: string, teamId: string) => {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ai_practice_generation_runs")
+    .select(
+      `
+        id,
+        practice_id,
+        team_id,
+        prompt,
+        stats_summary,
+        model,
+        status,
+        validation_error,
+        created_at,
+        stat_report_id
+      `,
+    )
+    .eq("practice_id", practiceId)
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
 });
 
 export const getPracticeTemplatesForSport = cache(async (sportKey: string) => {

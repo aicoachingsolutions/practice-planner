@@ -35,6 +35,11 @@ export type CoachDrillForManager = {
   priority: number;
   frequency: string;
   notes: string | null;
+  player_count: string | null;
+  equipment: string | null;
+  setup_instructions: string | null;
+  how_to_run: string | null;
+  coaching_points: string | null;
   drill_tag_map: DrillTagMapEntry[] | null;
 };
 
@@ -43,6 +48,14 @@ type TagOption = {
   tag_name: string;
   tag_slug: string;
   category: string | null;
+};
+
+type DrillSetupFields = {
+  player_count?: string | null;
+  equipment?: string | null;
+  setup_instructions?: string | null;
+  how_to_run?: string | null;
+  coaching_points?: string | null;
 };
 
 function tagFromMapping(mapping: DrillTagMapEntry): SportTag | null {
@@ -110,6 +123,13 @@ function formatZoneLabel(placementZone: string | null): string {
   return PLACEMENT_ZONE_SHORT_LABELS.general;
 }
 
+function getPlacementZone(placementZone: string | null): PlacementZone {
+  if (placementZone && isValidPlacementZone(placementZone)) {
+    return placementZone;
+  }
+  return "general";
+}
+
 function formatFrequencyCompact(frequency: string): string | null {
   switch (frequency) {
     case "none":
@@ -144,10 +164,14 @@ function formatFrequencyDetail(frequency: string): string {
   }
 }
 
-type TypeFilter = "all" | string;
 type FrequencyFilter = "all" | "has" | "none";
-type SourceFilter = "all" | "coach" | "copied";
 type ZoneFilter = "all" | PlacementZone;
+
+const FREQUENCY_FILTERS: { value: FrequencyFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "has", label: "Has frequency" },
+  { value: "none", label: "No frequency" },
+];
 
 type ActiveDrillsManagerProps = {
   drills: CoachDrillForManager[];
@@ -155,13 +179,40 @@ type ActiveDrillsManagerProps = {
   openDrillId?: string;
 };
 
+function getSetupField(drill: CoachDrillForManager, key: keyof DrillSetupFields): string {
+  const value = drill[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getBulletLines(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => (line.startsWith("\u2022 ") ? line.slice(2).trim() : line));
+}
+
+function DrillDetailText({ value }: { value: string }) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith("\u2022 ")) {
+    return (
+      <ul className="dl-detail-bullets">
+        {getBulletLines(trimmed).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <p className="dl-detail-text">{trimmed}</p>;
+}
+
 export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsManagerProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [zoneFilter, setZoneFilter] = useState<ZoneFilter>("all");
   const [frequencyFilter, setFrequencyFilter] = useState<FrequencyFilter>("all");
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [drawerMode, setDrawerMode] = useState<"detail" | "edit">("detail");
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     if (openDrillId && drills.some((d) => d.id === openDrillId)) {
@@ -170,14 +221,6 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
     return null;
   });
 
-  const drillTypes = useMemo(() => {
-    const set = new Set<string>();
-    for (const drill of drills) {
-      set.add(drill.drill_type);
-    }
-    return Array.from(set).sort((a, b) => formatDrillType(a).localeCompare(formatDrillType(b)));
-  }, [drills]);
-
   const queryLower = query.trim().toLowerCase();
 
   const filteredDrills = useMemo(() => {
@@ -185,14 +228,8 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
       if (queryLower && !drill.name.toLowerCase().includes(queryLower)) {
         return false;
       }
-      if (typeFilter !== "all" && drill.drill_type !== typeFilter) {
-        return false;
-      }
       if (zoneFilter !== "all") {
-        const zone = isValidPlacementZone(drill.placement_zone ?? "")
-          ? drill.placement_zone
-          : "general";
-        if (zone !== zoneFilter) {
+        if (getPlacementZone(drill.placement_zone) !== zoneFilter) {
           return false;
         }
       }
@@ -202,15 +239,9 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
       if (frequencyFilter === "none" && drill.frequency !== "none") {
         return false;
       }
-      if (sourceFilter === "coach" && drill.source_type !== "coach") {
-        return false;
-      }
-      if (sourceFilter === "copied" && drill.source_type !== "copied") {
-        return false;
-      }
       return true;
     });
-  }, [drills, queryLower, typeFilter, zoneFilter, frequencyFilter, sourceFilter]);
+  }, [drills, queryLower, zoneFilter, frequencyFilter]);
 
   const selectedDrill = useMemo(
     () => (selectedId ? drills.find((d) => d.id === selectedId) ?? null : null),
@@ -269,6 +300,11 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
       return;
     }
 
+    const isSheetViewport = window.matchMedia("(max-width: 719px)").matches;
+    if (!isSheetViewport) {
+      return;
+    }
+
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -282,19 +318,25 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
 
   if (drills.length === 0) {
     return (
-      <div className="list-card active-drills-empty">
-        <p className="muted">No drills saved yet. Create your first drill or copy one from the Library.</p>
+      <div className="dl-manager">
+        <div className="dl-empty" role="status">
+          <p>No drills saved yet. Create your first drill or copy one from the Library.</p>
+          <span>Use Add drill or Starter Library to build your practice-ready list.</span>
+        </div>
+        <a className="dl-fab" href="/app/drills?new=1" aria-label="Add drill">
+          +
+        </a>
       </div>
     );
   }
 
   return (
-    <div className="active-drills-manager">
-      <div className="active-drills-toolbar">
-        <label className="active-drills-search-label">
+    <div className="dl-manager">
+      <div className="dl-toolbar">
+        <label className="dl-search-label">
           <span className="sr-only">Search drills by name</span>
           <input
-            className="input"
+            className="input dl-search"
             type="search"
             name="active-drills-search"
             placeholder="Search drills by name..."
@@ -303,61 +345,41 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
             autoComplete="off"
           />
         </label>
-        <div className="drill-zone-chips" role="group" aria-label="Filter by practice zone">
+        <div className="dl-chip-row" role="group" aria-label="Filter by practice zone">
           {DRILL_LIST_ZONE_FILTERS.map((chip) => (
             <button
               key={chip.value}
               type="button"
-              className={`drill-zone-chip${zoneFilter === chip.value ? " active" : ""}`}
+              className={`dl-filter-chip${zoneFilter === chip.value ? " is-active" : ""}`}
               onClick={() => setZoneFilter(chip.value)}
+              aria-pressed={zoneFilter === chip.value}
             >
               {chip.label}
             </button>
           ))}
         </div>
-        <div className="active-drills-filters active-drills-filters-desktop">
-          <select
-            className="select active-drills-filter-select"
-            aria-label="Filter by drill type"
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
-          >
-            <option value="all">All types</option>
-            {drillTypes.map((type) => (
-              <option key={type} value={type}>
-                {formatDrillType(type)}
-              </option>
-            ))}
-          </select>
-          <select
-            className="select active-drills-filter-select"
-            aria-label="Filter by frequency"
-            value={frequencyFilter}
-            onChange={(event) => setFrequencyFilter(event.target.value as FrequencyFilter)}
-          >
-            <option value="all">All frequencies</option>
-            <option value="has">Has frequency</option>
-            <option value="none">No frequency</option>
-          </select>
-          <select
-            className="select active-drills-filter-select"
-            aria-label="Filter by source"
-            value={sourceFilter}
-            onChange={(event) => setSourceFilter(event.target.value as SourceFilter)}
-          >
-            <option value="all">All sources</option>
-            <option value="coach">Coach</option>
-            <option value="copied">Copied</option>
-          </select>
+        <div className="dl-chip-row dl-chip-row-compact" role="group" aria-label="Filter by frequency">
+          {FREQUENCY_FILTERS.map((chip) => (
+            <button
+              key={chip.value}
+              type="button"
+              className={`dl-filter-chip dl-filter-chip-small${frequencyFilter === chip.value ? " is-active" : ""}`}
+              onClick={() => setFrequencyFilter(chip.value)}
+              aria-pressed={frequencyFilter === chip.value}
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {filteredDrills.length === 0 ? (
-        <div className="list-card active-drills-empty">
-          <p className="muted">No drills match your search or filters.</p>
+        <div className="dl-empty" role="status">
+          <p>No drills match your search or filters.</p>
+          <span>Clear a chip or shorten the search to widen the list.</span>
         </div>
       ) : (
-        <ul className="active-drills-rows">
+        <ul className="dl-list">
           {filteredDrills.map((drill) => {
             const metaParts: string[] = [
               formatDrillType(drill.drill_type),
@@ -366,16 +388,31 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
             ];
 
             const isSelected = drill.id === selectedId;
+            const visibleTags = getVisibleTags(drill.drill_tag_map);
+            const tagsToShow = visibleTags.slice(0, 3);
+            const extraTagCount = Math.max(0, visibleTags.length - tagsToShow.length);
 
             return (
               <li key={drill.id}>
                 <button
                   type="button"
-                  className={`active-drill-row${isSelected ? " selected" : ""}`}
+                  className={`dl-row${isSelected ? " is-selected" : ""}`}
                   onClick={() => setSelectedId(drill.id)}
                 >
-                  <span className="active-drill-row-name">{drill.name}</span>
-                  <span className="active-drill-row-meta">{metaParts.join(" · ")}</span>
+                  <span className="dl-row-main">
+                    <span className="dl-row-name">{drill.name}</span>
+                    <span className="dl-row-meta">{metaParts.join(" · ")}</span>
+                  </span>
+                  {tagsToShow.length > 0 ? (
+                    <span className="dl-row-tags" aria-label="Drill tags">
+                      {tagsToShow.map((tag) => (
+                        <span className="dl-tag" key={tag.id}>
+                          {tag.tag_name}
+                        </span>
+                      ))}
+                      {extraTagCount > 0 ? <span className="dl-tag">+{extraTagCount} more</span> : null}
+                    </span>
+                  ) : null}
                 </button>
               </li>
             );
@@ -386,71 +423,66 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
       {selectedDrill ? (
         <>
           <div
-            className="drill-detail-backdrop"
+            className="dl-detail-backdrop"
             onClick={closeDetail}
             aria-hidden="true"
           />
           <aside
-            className="drill-detail-panel"
+            className="dl-detail-panel"
             role="dialog"
             aria-modal="true"
             aria-labelledby="drill-detail-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <header className="drill-detail-header">
+            <div className="dl-detail-handle" aria-hidden="true" />
+            <header className="dl-detail-header">
               <div>
                 <h3 id="drill-detail-title">
                   {drawerMode === "edit" ? "Edit drill" : selectedDrill.name}
                 </h3>
                 {drawerMode === "edit" ? (
-                  <p className="muted drill-detail-subtitle">{selectedDrill.name}</p>
+                  <p className="dl-detail-subtitle">{selectedDrill.name}</p>
                 ) : null}
               </div>
-              <div className="drill-detail-header-actions">
+              <div className="dl-detail-header-actions">
                 {drawerMode === "edit" ? (
                   <button
                     type="button"
-                    className="drill-detail-close"
+                    className="dl-detail-close"
                     onClick={() => setDrawerMode("detail")}
                   >
                     Cancel
                   </button>
                 ) : null}
-                <button type="button" className="drill-detail-close" onClick={closeDetail}>
+                <button type="button" className="dl-detail-close" onClick={closeDetail}>
                   Close
                 </button>
               </div>
             </header>
-            <div className="drill-detail-body">
+            <div className="dl-detail-body">
               {drawerMode === "detail" ? (
                 <>
-                  <div className="drill-detail-section">
-                    <p className="drill-detail-label">Source</p>
-                    <p className="drill-detail-value">
-                      {selectedDrill.source_type === "copied" ? "Copied" : "Coach"}
-                    </p>
-                  </div>
-                  <div className="drill-detail-section">
-                    <p className="drill-detail-label">Type</p>
-                    <p className="drill-detail-value">{formatDrillType(selectedDrill.drill_type)}</p>
-                  </div>
-                  <div className="drill-detail-section">
-                    <p className="drill-detail-label">Duration</p>
-                    <p className="drill-detail-value">
-                      {selectedDrill.default_duration_minutes} minutes
-                    </p>
-                  </div>
-                  <div className="drill-detail-section">
-                    <p className="drill-detail-label">Frequency</p>
-                    <p className="drill-detail-value">
-                      {formatFrequencyDetail(selectedDrill.frequency)}
-                    </p>
-                  </div>
-                  <div className="drill-detail-section">
-                    <p className="drill-detail-label">Priority</p>
-                    <p className="drill-detail-value">
-                      {selectedDrill.priority >= 5 ? "Marked priority" : "Standard"}
-                    </p>
+                  <div className="dl-detail-meta-grid">
+                    <div className="dl-detail-meta-item">
+                      <p>Type</p>
+                      <span>{formatDrillType(selectedDrill.drill_type)}</span>
+                    </div>
+                    <div className="dl-detail-meta-item">
+                      <p>Duration</p>
+                      <span>{selectedDrill.default_duration_minutes} min</span>
+                    </div>
+                    <div className="dl-detail-meta-item">
+                      <p>Zone</p>
+                      <span>{formatZoneLabel(selectedDrill.placement_zone)}</span>
+                    </div>
+                    <div className="dl-detail-meta-item">
+                      <p>Frequency</p>
+                      <span>{formatFrequencyDetail(selectedDrill.frequency)}</span>
+                    </div>
+                    <div className="dl-detail-meta-item">
+                      <p>Priority</p>
+                      <span>{selectedDrill.priority >= 5 ? "Marked priority" : "Standard"}</span>
+                    </div>
                   </div>
 
                   {(() => {
@@ -459,41 +491,84 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
                       (tag) => tag.tag_slug === selectedDrill.primary_goal_slug && tag.category === "universal",
                     );
                     const otherTags = visibleTags.filter((tag) => !isMainPracticeGoalSlug(tag.tag_slug));
+                    const playerCount = getSetupField(selectedDrill, "player_count");
+                    const equipment = getSetupField(selectedDrill, "equipment");
+                    const setup = getSetupField(selectedDrill, "setup_instructions");
+                    const howToRun = getSetupField(selectedDrill, "how_to_run");
+                    const coachingPoints = getSetupField(selectedDrill, "coaching_points");
+                    const hasSetup = Boolean(playerCount || equipment || setup || howToRun);
 
                     return (
                       <>
                         {goalTag ? (
-                          <div className="drill-detail-section">
-                            <p className="drill-detail-label">Practice goal</p>
-                            <div className="inline-meta">
+                          <details className="dl-detail-section" open>
+                            <summary>Practice goal</summary>
+                            <div className="dl-detail-chip-wrap">
                               <span className="chip accent">{goalTag.tag_name}</span>
                             </div>
-                          </div>
+                          </details>
                         ) : null}
                         {otherTags.length > 0 ? (
-                          <div className="drill-detail-section">
-                            <p className="drill-detail-label">Tags</p>
-                            <div className="inline-meta">
+                          <details className="dl-detail-section" open>
+                            <summary>Tags</summary>
+                            <div className="dl-detail-chip-wrap">
                               {otherTags.map((tag) => (
                                 <span className="chip" key={tag.id}>
                                   {tag.tag_name}
                                 </span>
                               ))}
                             </div>
-                          </div>
+                          </details>
+                        ) : null}
+                        {hasSetup ? (
+                          <details className="dl-detail-section" open>
+                            <summary>Setup</summary>
+                            <div className="dl-detail-field-grid">
+                              {playerCount ? (
+                                <div className="dl-detail-field">
+                                  <p>Player count</p>
+                                  <span>{playerCount}</span>
+                                </div>
+                              ) : null}
+                              {equipment ? (
+                                <div className="dl-detail-field">
+                                  <p>Equipment</p>
+                                  <span>{equipment}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                            {setup ? (
+                              <div className="dl-detail-field">
+                                <p>Setup</p>
+                                <DrillDetailText value={setup} />
+                              </div>
+                            ) : null}
+                            {howToRun ? (
+                              <div className="dl-detail-field">
+                                <p>How to run</p>
+                                <DrillDetailText value={howToRun} />
+                              </div>
+                            ) : null}
+                          </details>
+                        ) : null}
+                        {coachingPoints ? (
+                          <details className="dl-detail-section" open>
+                            <summary>Coaching points</summary>
+                            <DrillDetailText value={coachingPoints} />
+                          </details>
                         ) : null}
                       </>
                     );
                   })()}
 
                   {selectedDrill.notes ? (
-                    <div className="drill-detail-section">
-                      <p className="drill-detail-label">Notes</p>
-                      <p className="drill-detail-notes">{selectedDrill.notes}</p>
-                    </div>
+                    <details className="dl-detail-section" open>
+                      <summary>Notes</summary>
+                      <DrillDetailText value={selectedDrill.notes} />
+                    </details>
                   ) : null}
 
-                  <div className="drill-detail-actions">
+                  <div className="dl-detail-actions">
                     <button
                       type="button"
                       className="button-inline"
@@ -522,7 +597,7 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
                     action={updateDrill}
                     edit={buildEditInitial(selectedDrill, tags)}
                   />
-                  <div className="drill-detail-actions">
+                  <div className="dl-detail-actions">
                     <form action={archiveDrill}>
                       <input type="hidden" name="drill_id" value={selectedDrill.id} />
                       <button className="button-inline" type="submit">
@@ -542,6 +617,9 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
           </aside>
         </>
       ) : null}
+      <a className="dl-fab" href="/app/drills?new=1" aria-label="Add drill">
+        +
+      </a>
     </div>
   );
 }

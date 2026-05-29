@@ -46,6 +46,13 @@ export default async function AppPage({
 
     return (
       <main className="shell">
+        <div className="page-account-row">
+          <form action={signOut}>
+            <button className="button-inline" type="submit">
+              Sign out
+            </button>
+          </form>
+        </div>
         <section className="split">
           <div className="hero">
             <p className="eyebrow">Coach setup</p>
@@ -83,9 +90,18 @@ export default async function AppPage({
   return (
     <main className="shell page-grid">
       <section className="hero dashboard-hero">
-        <p className="eyebrow">Coach home</p>
-        <h1>Hi, {team.name} coach</h1>
-        <p>Plan your next practice in under 2 minutes.</p>
+        <div className="dashboard-hero__top">
+          <div className="stack">
+            <p className="eyebrow">Coach home</p>
+            <h1>Hi, {team.name} coach</h1>
+            <p>Plan your next practice in under 2 minutes.</p>
+          </div>
+          <form action={signOut}>
+            <button className="button-secondary dashboard-sign-out" type="submit">
+              Sign out
+            </button>
+          </form>
+        </div>
         <Link className="button dashboard-cta" href="/app/practices">
           + Build a new practice
         </Link>

@@ -13,6 +13,10 @@ const practiceTypeOptions = [
   { value: "custom", label: "Custom" },
 ] as const;
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 type Templates = Awaited<ReturnType<typeof getPracticeTemplatesForSport>>;
 type Template = Templates[number];
 type TemplateBlock = Template["practice_template_blocks"][number];
@@ -63,6 +67,7 @@ export function PracticeForm({
 }: Props) {
   const [targetSelection, setTargetSelection] = useState<(typeof targetOptions)[number]>("90");
   const [customTarget, setCustomTarget] = useState("90");
+  const [practiceDate, setPracticeDate] = useState(todayInputValue);
   const [practiceType, setPracticeType] = useState<string>("balanced");
   const [selectedTemplateKey, setSelectedTemplateKey] = useState(templates[0]?.template_key ?? "");
   const [blockEnabled, setBlockEnabled] = useState<Record<string, boolean>>({});
@@ -236,7 +241,14 @@ export function PracticeForm({
 
         <label className="label pf-field">
           Practice date
-          <input className="input pf-control" type="date" name="practice_date" required />
+          <input
+            className="input pf-control"
+            type="date"
+            name="practice_date"
+            value={practiceDate}
+            onChange={(event) => setPracticeDate(event.target.value)}
+            required
+          />
         </label>
 
         <label className="label pf-field">
@@ -444,8 +456,7 @@ export function PracticeForm({
                 className="input"
                 name="ai_prompt"
                 rows={4}
-                placeholder="Example: clean up late-game press break and get more competitive rebounding."
-                required={aiModalOpen}
+                placeholder="Optional. Example: clean up late-game press break and get more competitive rebounding."
               />
             </label>
 
@@ -500,6 +511,8 @@ export function PracticeForm({
             </div>
 
             <div className="muted-box ai-context">
+              Upload stats without a focus note and AI will infer weaknesses from the stat signals.
+              <br />
               Template: <strong>{selectedTemplate?.display_name ?? "None selected"}</strong>
               <br />
               Target: <strong>{targetMinutes} min</strong>

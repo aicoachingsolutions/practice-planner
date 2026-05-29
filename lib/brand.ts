@@ -11,7 +11,7 @@ export const PLATFORM_LABEL = "Coach platform";
 
 export const PRODUCT_NAME = "Practice Planner";
 
-export const PRODUCT_TAGLINE = "Practice planning that actually plans your practice.";
+export const PRODUCT_TAGLINE = "Less time planning. More time coaching.";
 
 export const PRODUCT_DESCRIPTION =
   "Plan practices faster with sport templates, your drill library, and quick courtside edits — built for coaches who want time back.";

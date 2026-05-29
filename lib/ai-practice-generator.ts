@@ -214,7 +214,8 @@ export function buildAiPracticePrompt(input: {
                   duration_minutes: "positive integer",
                   placement_zone: "warmup|offense|defense|situational|end_practice|general",
                   situation_tag_slug: "allowed slug or null",
-                  selection_reason: "prompt match|stats match|coach trend|system fallback|no match",
+                  selection_reason:
+                    "short coach-facing sentence explaining why this drill/segment was selected, citing stat signals or coach request when possible",
                 },
               ],
             },
@@ -227,6 +228,7 @@ export function buildAiPracticePrompt(input: {
           "Use same-sport candidate drill IDs only.",
           "Use situation_tag_slug only from allowed_situations for this sport.",
           "If no drill fits a segment, use drill_id null and a clear segment_name placeholder.",
+          "When stats_summary has signals, selection_reason should name the relevant weakness signal and how the drill addresses it.",
         ],
       }),
     },
