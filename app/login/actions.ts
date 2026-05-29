@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
-/** Prefer live request URL so magic-link redirect matches the host the coach used (localhost vs 127.0.0.1, port, etc.). */
+/** Prefer live request URL so OAuth redirect matches the host the coach used (localhost vs prod domain, port, etc.). */
 function getSiteUrlFromRequest(headerStore: Headers): string {
   const origin = headerStore.get("origin");
   if (origin) {
@@ -28,21 +28,16 @@ function getSiteUrlFromRequest(headerStore: Headers): string {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
-export async function sendMagicLink(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-
-  if (!email) {
-    redirect("/login?error=Email%20is%20required.");
-  }
-
+/** Start the Google OAuth flow. Supabase returns a provider URL we redirect the coach to. */
+export async function signInWithGoogle() {
   const headerStore = await headers();
   const origin = getSiteUrlFromRequest(headerStore);
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
     options: {
-      emailRedirectTo: new URL("/auth/callback", origin).toString(),
+      redirectTo: new URL("/auth/callback", origin).toString(),
     },
   });
 
@@ -50,7 +45,59 @@ export async function sendMagicLink(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/login?success=Check%20your%20email%20for%20the%20sign-in%20link.");
+  if (!data?.url) {
+    redirect("/login?error=Could%20not%20start%20Google%20sign-in.%20Try%20again.");
+  }
+
+  redirect(data.url);
+}
+
+/** Email + password sign-in for coaches without a Google account. */
+export async function signInWithPassword(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    redirect("/login?error=Email%20and%20password%20are%20required.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/app");
+}
+
+/** Email + password sign-up. With Supabase "Confirm email" OFF this returns a live session immediately. */
+export async function signUpWithPassword(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    redirect("/login?error=Email%20and%20password%20are%20required.");
+  }
+
+  if (password.length < 8) {
+    redirect("/login?error=Password%20must%20be%20at%20least%208%20characters.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({ email, password });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  // "Confirm email" OFF → a session is created and the coach is signed in.
+  if (data?.session) {
+    redirect("/app");
+  }
+
+  // "Confirm email" ON → no session yet; coach must confirm via email first.
+  redirect("/login?success=Account%20created.%20Check%20your%20email%20to%20confirm%2C%20then%20sign%20in.");
 }
 
 export async function signOut() {

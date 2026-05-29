@@ -8,9 +8,10 @@ type CookieToSet = {
 };
 
 /**
- * PKCE / magic-link exchange must attach session cookies to the outgoing redirect.
+ * PKCE / OAuth code exchange must attach session cookies to the outgoing redirect.
  * Using `cookies()` from `next/headers` in a Route Handler does not reliably persist
  * Supabase session cookies — use `NextResponse` + `createServerClient` (same idea as middleware).
+ * Handles the Google OAuth callback (and any other code-based flow).
  */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     const missing = new URL("/login", url.origin);
-    missing.searchParams.set("error", "Missing sign-in code. Request a new magic link.");
+    missing.searchParams.set("error", "Missing sign-in code. Try signing in again.");
     return NextResponse.redirect(missing);
   }
 
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(fail);
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Sign-in failed. Try a new magic link.";
+    const message = err instanceof Error ? err.message : "Sign-in failed. Try signing in again.";
     const fail = new URL("/login", url.origin);
     fail.searchParams.set("error", message);
     return NextResponse.redirect(fail);

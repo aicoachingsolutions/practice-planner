@@ -24,7 +24,7 @@ export default function LoginPage({
 
         <div className="card">
           <h2>Sign in to start</h2>
-          <p>Coaches sign in with a magic link — no password to remember.</p>
+          <p>Continue with Google for one-tap sign-in, or use your email and a password.</p>
           <LoginForm error={searchParams?.error} success={searchParams?.success} />
         </div>
       </section>
