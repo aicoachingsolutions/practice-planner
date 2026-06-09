@@ -161,7 +161,7 @@ export default async function AppPage({
             </div>
             <a
               className="button-inline"
-              href="https://analyzer.aicoachingsolutions.net"
+              href="https://www.aicoachingsolutions.net/free-breakdown"
               target="_blank"
               rel="noopener noreferrer"
             >
