@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LoginForm } from "@/app/login/login-form";
-import { PLATFORM_LABEL, PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/brand";
+import { BRAND_COMPANY, PLATFORM_LABEL, PLATFORM_TAGLINE } from "@/lib/brand";
 
 export default function LoginPage({
   searchParams,
@@ -12,11 +12,8 @@ export default function LoginPage({
       <section className="split">
         <div className="hero">
           <p className="eyebrow">{PLATFORM_LABEL}</p>
-          <h1>{PRODUCT_NAME}</h1>
-          <p>{PRODUCT_TAGLINE}</p>
-          <p className="landing-sub-cta" style={{ marginTop: 12 }}>
-            Less time planning. More time with your team.
-          </p>
+          <h1>{BRAND_COMPANY}</h1>
+          <p>{PLATFORM_TAGLINE}</p>
           <Link className="button-secondary" href="/" style={{ marginTop: 16, width: "fit-content" }}>
             ← Back to overview
           </Link>

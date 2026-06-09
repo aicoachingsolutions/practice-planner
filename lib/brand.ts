@@ -13,6 +13,9 @@ export const PRODUCT_NAME = "Practice Planner";
 
 export const PRODUCT_TAGLINE = "Less time planning. More time coaching.";
 
+/** Platform-level tagline for the shared sign-in / company surfaces (not a single product). */
+export const PLATFORM_TAGLINE = "Coaching tools that give you time back — practice planning, your drill library, and AI analysis, all in one login.";
+
 export const PRODUCT_DESCRIPTION =
   "Plan practices faster with sport templates, your drill library, and quick courtside edits — built for coaches who want time back.";
 
