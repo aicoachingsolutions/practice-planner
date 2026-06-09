@@ -1666,3 +1666,96 @@ export async function swapPracticeSegmentDrill(formData: FormData) {
   revalidatePath(`/app/practices/${practiceId}`);
   redirect(`/app/practices/${practiceId}?success=${encodeURIComponent("Drill updated.")}`);
 }
+
+/**
+ * Move a practice block one slot up or down. Swaps its block_order with the adjacent block and
+ * recomputes start_minute for the two affected blocks so the coach never types a minute number.
+ *
+ * Form fields: practice_id, block_id, direction ("up" | "down").
+ * Security: requireOwnedPractice + RLS. The block must belong to the practice.
+ */
+export async function movePracticeBlock(formData: FormData) {
+  const context = await requirePracticeContext();
+  const supabase = await createClient();
+
+  const practiceId = String(formData.get("practice_id") ?? "").trim();
+  const blockId = String(formData.get("block_id") ?? "").trim();
+  const direction = String(formData.get("direction") ?? "").trim();
+
+  if (!practiceId || !blockId || (direction !== "up" && direction !== "down")) {
+    redirect(`/app/practices?error=${encodeURIComponent("Could not move that section.")}`);
+  }
+
+  await requireOwnedPractice(supabase, context, practiceId);
+
+  const { data: blocks, error } = await supabase
+    .from("practice_blocks")
+    .select("id, block_order, planned_duration_minutes")
+    .eq("practice_id", practiceId)
+    .order("block_order", { ascending: true });
+
+  if (error) {
+    redirect(`/app/practices/${practiceId}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  const ordered = blocks ?? [];
+  const idx = ordered.findIndex((block) => block.id === blockId);
+
+  if (idx === -1) {
+    redirect(`/app/practices/${practiceId}?error=${encodeURIComponent("Section not found.")}`);
+  }
+
+  const neighborIdx = direction === "up" ? idx - 1 : idx + 1;
+
+  // Already at the top/bottom — nothing to do, just return to the sheet.
+  if (neighborIdx < 0 || neighborIdx >= ordered.length) {
+    redirect(`/app/practices/${practiceId}`);
+  }
+
+  const moving = ordered[idx];
+  const neighbor = ordered[neighborIdx];
+
+  // Compute the new cumulative start_minutes after the swap.
+  const swapped = [...ordered];
+  [swapped[idx], swapped[neighborIdx]] = [swapped[neighborIdx], swapped[idx]];
+  const startById = new Map<string, number>();
+  let cursor = 0;
+  for (const block of swapped) {
+    startById.set(block.id, cursor);
+    cursor += block.planned_duration_minutes ?? 0;
+  }
+
+  // Swap block_order safely around the unique (practice_id, block_order) constraint:
+  // park the moving block at a temporary high order, move the neighbor, then land the moving block.
+  const TEMP_ORDER = 1_000_000;
+
+  const park = await supabase
+    .from("practice_blocks")
+    .update({ block_order: TEMP_ORDER })
+    .eq("id", moving.id)
+    .eq("practice_id", practiceId);
+  if (park.error) {
+    redirect(`/app/practices/${practiceId}?error=${encodeURIComponent(park.error.message)}`);
+  }
+
+  const moveNeighbor = await supabase
+    .from("practice_blocks")
+    .update({ block_order: moving.block_order, start_minute: startById.get(neighbor.id) ?? 0 })
+    .eq("id", neighbor.id)
+    .eq("practice_id", practiceId);
+  if (moveNeighbor.error) {
+    redirect(`/app/practices/${practiceId}?error=${encodeURIComponent(moveNeighbor.error.message)}`);
+  }
+
+  const landMoving = await supabase
+    .from("practice_blocks")
+    .update({ block_order: neighbor.block_order, start_minute: startById.get(moving.id) ?? 0 })
+    .eq("id", moving.id)
+    .eq("practice_id", practiceId);
+  if (landMoving.error) {
+    redirect(`/app/practices/${practiceId}?error=${encodeURIComponent(landMoving.error.message)}`);
+  }
+
+  revalidatePath(`/app/practices/${practiceId}`);
+  redirect(`/app/practices/${practiceId}`);
+}

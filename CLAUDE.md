@@ -86,3 +86,18 @@ All product-facing names/taglines/AI-feature copy live in `lib/brand.ts` (`PRODU
 - Client components that need a server action receive it as a prop (e.g. `swapDrillAction`) rather than importing it directly, keeping them testable.
 - New coach-data columns flow through three places that must stay in sync: the migration, the `lib/data.ts` select, and the consuming component's type.
 - Mobile-first CSS lives in `app/globals.css` with per-feature prefixes: `pf-` (practice form), `dps-` (drill picker sheet), `dl-` (drill list), `btn`/app-tab for nav. Breakpoint is 640px.
+
+## Design / quality bar (this is the flagship product — every build must feel pro)
+
+Practice Planner is the flagship app for AI Coaching Solutions. The quality bar is non-negotiable and applies to every change, mine and any sub-agent's:
+
+- **One primary action per screen.** The coach must never wonder what to tap. The primary action uses the gold/filled `button`; everything secondary uses `button-secondary` or `button-inline` and visually recedes.
+- **Every action confirms.** Use pending/disabled states (`useFormStatus`), success/error messages, and saved indicators. No dead taps, no silent failures, no "did that work?".
+- **No blank screens.** Every empty list/state has a one-line friendly message plus the next action to take.
+- **Consistency over cleverness.** Reuse the existing spacing, radius (`--radius`), color tokens, and button/chip classes. Do not introduce one-off styles or new color values — inconsistency is what reads as amateur.
+- **Forgiveness.** Confirm destructive actions, always offer cancel, never lose coach input on a misclick.
+- **Courtside-ready.** One-handed, thumb-reachable, 44px+ tap targets, readable in a gym, fast. A coach has ~20 seconds between drills.
+- **Motion is subtle and fast.** Transitions under 200ms, purposeful, never janky.
+
+### Coach-facing simplicity (drill entry especially)
+The drill form is the make-or-break surface — a coach enters dozens of drills. Required fields are kept to the minimum: **name, "when does it belong" (placement_zone), duration**. Everything else (skills tags, format, frequency, priority, notes) is optional and lives behind an "Add details" expander. The legacy `primary_goal_slug` is **derived automatically from placement_zone** and never shown to the coach (`derivePrimaryGoalSlugFromPlacementZone` in `app/app/drills/actions.ts`). Do not reintroduce a required "practice goal" field.

@@ -50,6 +50,16 @@ export const PLACEMENT_ZONE_SHORT_LABELS: Record<PlacementZone, string> = {
   general: "General",
 };
 
+/** Tap-button labels for the drill form's "when does it belong?" selector. Kept short to fit buttons. */
+export const PLACEMENT_ZONE_BUTTON_LABELS: Record<PlacementZone, string> = {
+  warmup: "Warmup",
+  offense: "Offense",
+  defense: "Defense",
+  situational: "Situations",
+  end_practice: "End",
+  general: "Anytime",
+};
+
 export const DRILL_LIST_ZONE_FILTERS: { value: "all" | PlacementZone; label: string }[] = [
   { value: "all", label: "All" },
   { value: "warmup", label: "Warmup" },

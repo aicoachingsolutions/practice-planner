@@ -2267,3 +2267,324 @@ a.button-inline {
 .auth-toggle:hover {
   color: var(--accent-dark);
 }
+
+/* Drill form — coach-facing simplicity. Tap buttons + skill chips up top, rare stuff behind expander. */
+.drill-form-hint {
+  margin-top: -2px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+/* "When does it belong?" — radio group styled as tap buttons. */
+.drill-zone-group {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.drill-zone-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.drill-zone-button {
+  position: relative;
+  display: flex;
+}
+
+.drill-zone-button input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.drill-zone-button span {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.drill-zone-button input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.drill-zone-button input:focus-visible + span {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
+/* Skill chips — tap to toggle. */
+.drill-skill-block {
+  display: grid;
+  gap: 8px;
+}
+
+.drill-chip-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drill-chip {
+  position: relative;
+  display: inline-flex;
+}
+
+.drill-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.drill-chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.drill-chip span::before {
+  content: "+";
+  margin-right: 6px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.drill-chip input:checked + span {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.drill-chip input:checked + span::before {
+  content: "✓";
+  color: var(--accent-foreground);
+}
+
+.drill-chip input:focus-visible + span {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
+.drill-chip-more {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-dark);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+@media (max-width: 479px) {
+  .drill-zone-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.drill-form-duration {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drill-form-duration input {
+  width: 110px;
+}
+
+.drill-form-duration-unit {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.drill-form-more {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.drill-form-more > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--ink);
+  user-select: none;
+}
+
+.drill-form-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.drill-form-more > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.drill-form-more[open] > summary::after {
+  content: "–";
+}
+
+.drill-form-more[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.drill-form-more-body {
+  display: grid;
+  gap: 18px;
+  padding: 16px;
+}
+
+/* Practice sheet — focus sections render as distinct bands; open drill time is plain. */
+.practice-section {
+  position: relative;
+}
+
+.practice-section--focus {
+  border-left: 4px solid var(--accent);
+}
+
+.practice-section-header {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.practice-section-tag {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 22px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.practice-section-tag--open {
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--muted);
+}
+
+.practice-section-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.practice-section-move {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.practice-section-move form {
+  margin: 0;
+}
+
+.section-move-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.section-move-btn:hover:not(:disabled) {
+  border-color: var(--accent-dark);
+  background: rgba(255, 214, 10, 0.1);
+}
+
+.section-move-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Coaching tools launchpad — one card per tool, consistent action placement. */
+.tool-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tool-card-body {
+  flex: 1;
+  gap: 8px;
+}
+
+.tool-card .button-inline,
+.tool-card a.button-inline {
+  align-self: flex-start;
+}
+
+.tool-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tool-card-head h3 {
+  margin: 0;
+}
+
+.tool-card--soon {
+  border-style: dashed;
+  background: rgba(255, 255, 255, 0.55);
+}

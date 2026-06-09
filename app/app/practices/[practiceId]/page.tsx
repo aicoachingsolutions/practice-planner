@@ -10,6 +10,7 @@ import {
 } from "@/lib/data";
 import {
   duplicatePractice,
+  movePracticeBlock,
   savePracticePlan,
   swapPracticeSegmentDrill,
 } from "@/app/app/practices/actions";
@@ -218,11 +219,13 @@ export default async function PracticeDetailPage({ params, searchParams }: Props
         focusNotes={practice.custom_focus ?? ""}
         notes={practice.notes ?? ""}
         blocks={practice.practice_blocks.map((block) => ({
+          blockId: block.id ?? null,
           blockName: block.block_name,
           startMinute: block.start_minute ?? 0,
           itemType: (block.item_type ?? "drill_gap") as "warmup" | "focus_anchor" | "drill_gap",
           plannedDurationMinutes: block.planned_duration_minutes ?? 0,
           templateId: block.template_id ?? null,
+          placementZone: block.placement_zone ?? null,
           entries: block.practice_block_drills.map((segment) => ({
             id: segment.id ?? null,
             drillId: segment.drill_id ?? null,
@@ -247,6 +250,7 @@ export default async function PracticeDetailPage({ params, searchParams }: Props
         saveAction={savePracticePlan}
         duplicateAction={duplicatePractice}
         swapDrillAction={swapPracticeSegmentDrill}
+        moveBlockAction={movePracticeBlock}
         sportKey={team.sport_key}
         error={searchParams?.error}
       />

@@ -6,7 +6,6 @@ import { archiveDrill, deleteDrill, updateDrill } from "@/app/app/drills/actions
 import { DrillForm, type DrillEditInitial } from "@/app/app/drills/drill-form";
 import {
   DRILL_LIST_ZONE_FILTERS,
-  isMainPracticeGoalSlug,
   isValidPlacementZone,
   PLACEMENT_ZONE_SHORT_LABELS,
   type PlacementZone,
@@ -95,7 +94,7 @@ function buildEditInitial(drill: CoachDrillForManager, tags: TagOption[]): Drill
   const mapIds = [...new Set((drill.drill_tag_map ?? []).map((m) => m.tag_id))];
   const additionalTagIds = mapIds.filter((id) => {
     const tag = tags.find((candidate) => candidate.id === id);
-    return Boolean(tag && !isMainPracticeGoalSlug(tag.tag_slug));
+    return Boolean(tag && tag.category === "sport_specific");
   });
 
   return {
@@ -490,7 +489,7 @@ export function ActiveDrillsManager({ drills, tags, openDrillId }: ActiveDrillsM
                     const goalTag = tags.find(
                       (tag) => tag.tag_slug === selectedDrill.primary_goal_slug && tag.category === "universal",
                     );
-                    const otherTags = visibleTags.filter((tag) => !isMainPracticeGoalSlug(tag.tag_slug));
+                    const otherTags = visibleTags.filter((tag) => tag.category === "sport_specific");
                     const playerCount = getSetupField(selectedDrill, "player_count");
                     const equipment = getSetupField(selectedDrill, "equipment");
                     const setup = getSetupField(selectedDrill, "setup_instructions");

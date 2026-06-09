@@ -130,6 +130,67 @@ export default async function AppPage({
         </article>
       </section>
 
+      {/* Coaching tools launchpad */}
+      <section className="stack">
+        <h2>Your coaching tools</h2>
+        <div className="tool-grid">
+          <article className="card tool-card">
+            <div className="stack tool-card-body">
+              <h3>Practice Planner</h3>
+              <p className="muted">Build structured practices from your drill library in minutes.</p>
+            </div>
+            <Link className="button-inline" href="/app/practices">
+              Open
+            </Link>
+          </article>
+
+          <article className="card tool-card">
+            <div className="stack tool-card-body">
+              <h3>Drill Library</h3>
+              <p className="muted">Store, tag, and reuse your drills across every practice.</p>
+            </div>
+            <Link className="button-inline" href="/app/library">
+              Open
+            </Link>
+          </article>
+
+          <article className="card tool-card">
+            <div className="stack tool-card-body">
+              <h3>Swing Analyzer</h3>
+              <p className="muted">Instant AI breakdown of a baseball, softball, or golf swing.</p>
+            </div>
+            <a
+              className="button-inline"
+              href="https://analyzer.aicoachingsolutions.net"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open
+            </a>
+          </article>
+
+          <article className="card tool-card tool-card--soon">
+            <div className="stack tool-card-body">
+              <div className="tool-card-head">
+                <h3>Team Analyzer</h3>
+                <span className="chip">Coming soon</span>
+              </div>
+              <p className="muted">Team &amp; player stats, trends, and AI recommendations.</p>
+            </div>
+          </article>
+
+          <article className="card tool-card tool-card--soon">
+            <div className="stack tool-card-body">
+              <div className="tool-card-head">
+                <h3>More tools</h3>
+                <span className="chip">Coming soon</span>
+              </div>
+              <p className="muted">Team communication, culture tracking, and more for your program.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section className="card">
         <h2>Recent practices</h2>
         {recentPractices.length === 0 ? (
@@ -152,15 +213,6 @@ export default async function AppPage({
           </ul>
         )}
         <div className="actions-row" style={{ marginTop: 16 }}>
-          <Link className="button-inline" href="/app/drills">
-            Open My Drills
-          </Link>
-          <Link className="button-inline" href="/app/practices">
-            Open Practices
-          </Link>
-          <Link className="button-inline" href="/app/library">
-            Open Library
-          </Link>
           <form action={signOut}>
             <button className="button-inline" type="submit">
               Sign out

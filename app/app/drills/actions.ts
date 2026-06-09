@@ -68,6 +68,29 @@ function derivePlacementZoneFromGoalSlug(primaryGoalSlug: string): string {
   return "general";
 }
 
+/**
+ * Derive the legacy primary_goal_slug from the coach-facing placement_zone so the drill form
+ * only has to ask "when does it belong?" once. placement_zone and primary_goal_slug have
+ * DIFFERENT check constraints — situational/end_practice/general are not valid goal slugs, so
+ * they map onto the closest legal value (competitive / communication).
+ */
+function derivePrimaryGoalSlugFromPlacementZone(placementZone: string): string {
+  switch (placementZone) {
+    case "warmup":
+      return "warmup";
+    case "offense":
+      return "offense";
+    case "defense":
+      return "defense";
+    case "end_practice":
+      return "communication";
+    case "situational":
+    case "general":
+    default:
+      return "competitive";
+  }
+}
+
 function resolvePrimaryGoalSlug(
   value: string | null | undefined,
   drillType: string,
@@ -101,9 +124,11 @@ async function parseCoachDrillForm(
   formData: FormData,
 ): Promise<ParseCoachDrillFormResult> {
   const name = String(formData.get("name") ?? "").trim();
+  // goal_tag_id is now OPTIONAL — the form no longer asks the coach for it. When present (legacy
+  // or advanced use) it still wins; otherwise primary_goal_slug is derived from placement_zone.
   const goalTagId = String(formData.get("goal_tag_id") ?? "").trim();
   const rawPlacementZone = String(formData.get("placement_zone") ?? "general").trim();
-  const drillType = String(formData.get("drill_type") ?? "").trim();
+  const rawDrillType = String(formData.get("drill_type") ?? "").trim();
   const duration = Number(String(formData.get("default_duration_minutes") ?? "10"));
   const frequency = String(formData.get("frequency") ?? "none").trim();
   const priorityFlag = formData.get("priority") === "on";
@@ -112,39 +137,41 @@ async function parseCoachDrillForm(
     .getAll("tag_ids")
     .map((value) => String(value))
     .filter(Boolean);
-  const selectedTags = [goalTagId, ...additionalTagIds].filter(Boolean);
 
   if (!name) {
-    return { ok: false, message: "Drill name is required." };
-  }
-
-  if (!goalTagId) {
-    return { ok: false, message: "Select a practice goal for this drill." };
+    return { ok: false, message: "Add a name for this drill." };
   }
 
   const placementZone = isValidPlacementZone(rawPlacementZone) ? rawPlacementZone : "general";
 
-  if (!drillTypes.has(drillType)) {
-    return { ok: false, message: "Select a valid drill type." };
-  }
+  // Drill format is optional. Default to a sensible value from the placement zone so the coach
+  // isn't forced to categorize the same drill twice.
+  const drillType = drillTypes.has(rawDrillType)
+    ? rawDrillType
+    : placementZone === "warmup"
+      ? "warmup"
+      : "team";
 
   if (!Number.isFinite(duration) || duration <= 0) {
-    return { ok: false, message: "Duration must be a positive number." };
+    return { ok: false, message: "Set how many minutes this drill usually takes." };
   }
 
   if (!frequencyRules.has(frequency)) {
-    return { ok: false, message: "Select a valid frequency rule." };
+    return { ok: false, message: "Select a valid frequency." };
   }
 
+  // primary_goal_slug is derived from placement_zone by default; the coach never sees it.
+  let primaryGoalSlug = derivePrimaryGoalSlugFromPlacementZone(placementZone);
   let validTagIds = new Set<string>();
-  let primaryGoalSlug = "";
 
-  if (selectedTags.length > 0) {
+  const tagsToValidate = [goalTagId, ...additionalTagIds].filter(Boolean);
+
+  if (tagsToValidate.length > 0) {
     const { data: validTags, error: tagError } = await supabase
       .from("sport_tags")
       .select("id, category, tag_slug")
       .eq("sport_key", team.sport_key)
-      .in("id", selectedTags);
+      .in("id", tagsToValidate);
 
     if (tagError) {
       return { ok: false, message: tagError.message };
@@ -152,29 +179,32 @@ async function parseCoachDrillForm(
 
     validTagIds = new Set((validTags ?? []).map((tag) => tag.id));
 
-    if (validTagIds.size !== new Set(selectedTags).size) {
+    if (validTagIds.size !== new Set(tagsToValidate).size) {
       return { ok: false, message: "Selected tags must match your team sport." };
     }
 
-    const selectedGoal = (validTags ?? []).find((tag) => tag.id === goalTagId);
-
-    if (!selectedGoal || selectedGoal.category !== "universal" || !isMainPracticeGoalSlug(selectedGoal.tag_slug ?? "")) {
-      return { ok: false, message: "Practice goal must use a valid goal category." };
+    // If a goal tag was explicitly provided, honor it (overrides the derived slug).
+    if (goalTagId) {
+      const selectedGoal = (validTags ?? []).find((tag) => tag.id === goalTagId);
+      if (!selectedGoal || selectedGoal.category !== "universal" || !isMainPracticeGoalSlug(selectedGoal.tag_slug ?? "")) {
+        return { ok: false, message: "Practice goal must use a valid goal category." };
+      }
+      primaryGoalSlug = String(selectedGoal.tag_slug).toLowerCase();
+      validTagIds.delete(goalTagId);
     }
 
-    primaryGoalSlug = String(selectedGoal.tag_slug).toLowerCase();
-
+    // Skill chips are the sport's concrete (sport_specific) tags — reject anything else so the
+    // abstract universal scheduling tags can't sneak in as skills.
     const tagById = new Map((validTags ?? []).map((tag) => [tag.id, tag]));
     for (const tagId of additionalTagIds) {
       const tag = tagById.get(tagId);
       if (!tag) {
         continue;
       }
-      if (isMainPracticeGoalSlug(String(tag.tag_slug ?? ""))) {
-        return { ok: false, message: "Additional tags cannot use main practice goals." };
+      if (tag.category !== "sport_specific") {
+        return { ok: false, message: "Skill tags must be sport-specific skills." };
       }
     }
-    validTagIds.delete(goalTagId);
   }
 
   return {

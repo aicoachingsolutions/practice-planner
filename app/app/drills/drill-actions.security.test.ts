@@ -36,7 +36,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 const sportTagRows = [
   { id: "tag-goal-1", category: "universal", tag_slug: "offense" },
-  { id: "tag-detail-1", category: "offense", tag_slug: "passing" },
+  { id: "tag-detail-1", category: "sport_specific", tag_slug: "passing" },
 ];
 
 function sportTagsChain() {
@@ -423,7 +423,7 @@ describe("drill actions sport_key enforcement", () => {
   it("updateDrill rejects removed main goals such as situational", async () => {
     const invalidGoalRows = [
       { id: "tag-goal-1", category: "universal", tag_slug: "situational" },
-      { id: "tag-detail-1", category: "offense", tag_slug: "passing" },
+      { id: "tag-detail-1", category: "sport_specific", tag_slug: "passing" },
     ];
     vi.mocked(createClient).mockResolvedValue(
       {
@@ -446,7 +446,7 @@ describe("drill actions sport_key enforcement", () => {
     );
   });
 
-  it("createDrill rejects main-goal slugs in additional tags", async () => {
+  it("createDrill rejects non-sport-specific tags as skills", async () => {
     vi.mocked(createClient).mockResolvedValue(
       {
         from(table: string) {
@@ -478,7 +478,7 @@ describe("drill actions sport_key enforcement", () => {
     fd.append("tag_ids", "tag-bad-additional");
     await expect(createDrill(fd)).rejects.toThrow("redirect:");
     expect(redirect).toHaveBeenCalledWith(
-      expect.stringContaining("Additional%20tags%20cannot%20use%20main%20practice%20goals."),
+      expect.stringContaining("Skill%20tags%20must%20be%20sport-specific%20skills."),
     );
   });
 
@@ -496,7 +496,7 @@ describe("drill actions sport_key enforcement", () => {
               Promise.resolve({
                 data: [
                   { id: "tag-goal-1", category: "universal", tag_slug: "offense" },
-                  { id: "tag-detail-1", category: "offense", tag_slug: "passing" },
+                  { id: "tag-detail-1", category: "sport_specific", tag_slug: "passing" },
                 ],
                 error: null,
               });

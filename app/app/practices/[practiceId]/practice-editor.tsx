@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { isValidPlacementZone, PLACEMENT_ZONE_SHORT_LABELS } from "@/lib/drill-goal-model";
 import { DrillPickerSheet, type DrillSheetOption } from "./drill-picker-sheet";
 
 type DrillOption = {
@@ -28,11 +29,15 @@ type PracticeEntry = {
 };
 
 type PracticeBlock = {
+  /** practice_blocks.id — present for saved blocks; null for unsaved rows added in edit mode. */
+  blockId: string | null;
   blockName: string;
   startMinute: number;
   itemType: "warmup" | "focus_anchor" | "drill_gap";
   plannedDurationMinutes: number;
   templateId: string | null;
+  /** Persisted scheduling zone — drives whether this renders as a focus band or open drill time. */
+  placementZone: string | null;
   entries: PracticeEntry[];
 };
 
@@ -50,6 +55,8 @@ type Props = {
   duplicateAction: (formData: FormData) => void;
   /** Server action that swaps the drill on a single saved segment. Optional for backward compat. */
   swapDrillAction?: (formData: FormData) => void;
+  /** Server action that moves a block up/down. Optional for backward compat. */
+  moveBlockAction?: (formData: FormData) => void;
   sportKey: string;
   error?: string;
 };
@@ -96,13 +103,26 @@ function createEmptyEntry(): PracticeEntry {
 
 function createEmptyBlock(): PracticeBlock {
   return {
+    blockId: null,
     blockName: "New block",
     startMinute: 0,
     itemType: "drill_gap",
     plannedDurationMinutes: 15,
     templateId: null,
+    placementZone: null,
     entries: [],
   };
+}
+
+/** Zones that render as a labeled focus band. general/null are plain "open drill time". */
+const FOCUS_ZONES = new Set(["warmup", "offense", "defense", "situational", "end_practice"]);
+
+function isFocusSection(placementZone: string | null, blockName: string): boolean {
+  if (placementZone) {
+    return FOCUS_ZONES.has(placementZone);
+  }
+  // Fallback for legacy blocks without a persisted zone.
+  return inferBlockZone(blockName) !== null;
 }
 
 function formatMinuteRange(startMinute: number, durationMinutes: number) {
@@ -229,6 +249,7 @@ export function PracticeEditor({
   saveAction,
   duplicateAction,
   swapDrillAction,
+  moveBlockAction,
   sportKey,
   error,
 }: Props) {
@@ -284,11 +305,13 @@ export function PracticeEditor({
       0,
     );
     const nextBlock: PracticeBlock = {
+      blockId: null,
       blockName: option.blockName,
       startMinute: nextStart,
       itemType: "focus_anchor",
       plannedDurationMinutes: 10,
       templateId: null,
+      placementZone: option.zone || null,
       entries: [{ ...createEmptyEntry(), segmentName: option.blockName, durationMinutes: 10 }],
     };
 
@@ -827,19 +850,62 @@ export function PracticeEditor({
         <h2>Practice plan (in order)</h2>
         <p className="muted">Same order you&apos;ll run on the floor — each part shows drills from your library or an open planning slot.</p>
         <div className="list">
-          {blocks.map((block, blockIndex) => (
-            <article className="list-card" key={`${block.blockName}-${blockIndex}`}>
-              <div className="list-card-header">
+          {blocks.map((block, blockIndex) => {
+            const focus = isFocusSection(block.placementZone, block.blockName);
+            const zone = block.placementZone ?? inferBlockZone(block.blockName);
+            const zoneLabel = zone && isValidPlacementZone(zone) ? PLACEMENT_ZONE_SHORT_LABELS[zone] : null;
+            const canMove = Boolean(moveBlockAction && block.blockId);
+
+            return (
+            <article
+              className={`list-card practice-section${focus ? " practice-section--focus" : " practice-section--open"}`}
+              data-zone={focus && zone ? zone : undefined}
+              key={block.blockId ?? `${block.blockName}-${blockIndex}`}
+            >
+              <div className="list-card-header practice-section-header">
                 <div className="stack">
-                  <span className="block-order-label">
-                    Part {blockIndex + 1} of {blocks.length}
-                  </span>
+                  {focus && zoneLabel ? (
+                    <span className="practice-section-tag">{zoneLabel}</span>
+                  ) : (
+                    <span className="practice-section-tag practice-section-tag--open">Open drill time</span>
+                  )}
                   <h3>{block.blockName}</h3>
                 </div>
-                <div className="inline-meta">
-                  <span className="chip">{formatMinuteRange(block.startMinute, block.plannedDurationMinutes)}</span>
-                  <span className="chip">{block.plannedDurationMinutes} min</span>
-                  <span className="chip">{block.itemType.replace("_", " ")}</span>
+                <div className="practice-section-controls">
+                  <div className="inline-meta">
+                    <span className="chip">{formatMinuteRange(block.startMinute, block.plannedDurationMinutes)}</span>
+                    <span className="chip">{block.plannedDurationMinutes} min</span>
+                  </div>
+                  {canMove ? (
+                    <div className="practice-section-move no-print">
+                      <form action={moveBlockAction}>
+                        <input type="hidden" name="practice_id" value={practiceId} />
+                        <input type="hidden" name="block_id" value={block.blockId as string} />
+                        <input type="hidden" name="direction" value="up" />
+                        <button
+                          type="submit"
+                          className="section-move-btn"
+                          aria-label={`Move ${block.blockName} up`}
+                          disabled={blockIndex === 0}
+                        >
+                          ↑
+                        </button>
+                      </form>
+                      <form action={moveBlockAction}>
+                        <input type="hidden" name="practice_id" value={practiceId} />
+                        <input type="hidden" name="block_id" value={block.blockId as string} />
+                        <input type="hidden" name="direction" value="down" />
+                        <button
+                          type="submit"
+                          className="section-move-btn"
+                          aria-label={`Move ${block.blockName} down`}
+                          disabled={blockIndex === blocks.length - 1}
+                        >
+                          ↓
+                        </button>
+                      </form>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -907,7 +973,8 @@ export function PracticeEditor({
                 )}
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 

@@ -239,6 +239,8 @@ export const getPracticeForTeam = cache(async (practiceId: string, teamId: strin
           item_type,
           block_order,
           planned_duration_minutes,
+          placement_zone,
+          focus_subcategory_tag_slug,
           notes,
           practice_block_drills (
             id,
